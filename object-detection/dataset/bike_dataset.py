@@ -53,7 +53,7 @@ class DelftBikeDataset(object):
         target["iscrowd"] = iscrowd
 
         if self.transforms is not None:
-            img, target = self.transforms(img,target)
+            img, target = self.transforms(img,target,self.mode)
 
         return img, target
 
