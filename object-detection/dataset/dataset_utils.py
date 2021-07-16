@@ -6,8 +6,6 @@ import torch
 import torchvision.transforms as T
 from torchvision.transforms import functional as F
 import albumentations as A
-from .data_aug import *
-from .bbox_util import *
 
 
 def _flip_coco_person_keypoints(kps, width):
@@ -26,12 +24,6 @@ class Compose(object):
     def __call__(self, image, target):
 
         transform = A.Compose([
-        #A.RandomCrop(width=450, height=450),
-        #A.HorizontalFlip(p=0.5),
-        #A.RandomBrightnessContrast(p=0.2),
-
-        #A.RandomSizedCrop(min_max_height=(200,200), height=360, width=640, p=0.5),
-        #A.RandomSizedCropV2(height=512, width=512, scale=(0.08, 1.0), ratio=(0.75, 1.33333)),
         A.OneOf([
                 A.HueSaturationValue(hue_shift_limit=0.2, sat_shift_limit= 0.2, 
                                      val_shift_limit=0.2, p=0.9),
@@ -52,10 +44,11 @@ class Compose(object):
         transformed = transform(image=image, bboxes=np.array(boxes.tolist()))
         image = transformed['image'].copy()
         target["boxes"] = torch.as_tensor(transformed['bboxes'].copy(), dtype=torch.float32)[:,:-1]
-        #target["labels"] = torch.as_tensor(transformed['class_labels'].copy(), dtype=torch.int64)
 
         for t in self.transforms:
             image, target = t(image, target)
+
+        #After converting to tensor, add mixup
         return image, target
 
 class RandomHorizontalFlips(object):
