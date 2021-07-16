@@ -3,6 +3,7 @@
 import os
 import torch
 import json
+import cv2
 from PIL import Image
 
 class DelftBikeDataset(object):
@@ -19,7 +20,7 @@ class DelftBikeDataset(object):
     def __getitem__(self, idx):
         # load images ad masks
         img_path = os.path.join(self.root, self.image_path, self.imgs[idx])
-        img = Image.open(img_path).convert("RGB")
+        img = cv2.imread(img_path)[:,:,::-1]#Image.open(img_path).convert("RGB")
         labels = self.json_data[self.imgs[idx]]
         # get bounding box coordinates for each mask
         num_objs = len(labels['parts'])
@@ -35,6 +36,7 @@ class DelftBikeDataset(object):
                 ymin = loc['top']
                 ymax = loc['top'] + loc['height']
                 boxes.append([xmin, ymin, xmax, ymax])
+                #print([xmin, ymin, xmax, ymax])
                 labs.append(ind+1) 
         # convert everything into a torch tensor
         boxes = torch.as_tensor(boxes, dtype=torch.float32)
@@ -51,7 +53,7 @@ class DelftBikeDataset(object):
         target["iscrowd"] = iscrowd
 
         if self.transforms is not None:
-            img, target = self.transforms(img, target)
+            img, target = self.transforms(img,target)
 
         return img, target
 
