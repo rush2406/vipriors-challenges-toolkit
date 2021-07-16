@@ -5,6 +5,7 @@ import random
 import torch
 import torchvision.transforms as T
 from torchvision.transforms import functional as F
+import numpy as np
 import albumentations as A
 
 
@@ -24,7 +25,7 @@ class Compose(object):
     def __call__(self, image, target,mode):
 
         if mode=='train':
-            
+
             transform = A.Compose([
             A.OneOf([
                     A.HueSaturationValue(hue_shift_limit=0.2, sat_shift_limit= 0.2, 
@@ -79,7 +80,7 @@ class ToTensor(object):
         #target["boxes"] = torch.as_tensor(bboxes_, dtype=torch.float32)
         #image = F.to_tensor(img_)
 
-        image = F.to_tensor(image)
+        image = F.to_tensor(image.copy())
         return image, target
 
 def get_transform(train):
