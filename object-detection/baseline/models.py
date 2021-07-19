@@ -62,4 +62,6 @@ def fasterrcnn_resnet_fpn(backbone_name):
 models = {
     'fasterrcnn_resnet50_fpn': fasterrcnn_resnet_fpn('resnet50'),
     'fasterrcnn_resnet18_fpn': fasterrcnn_resnet_fpn('resnet18'),
+    'fasterrcnn_resnet101_fpn': fasterrcnn_resnet_fpn('resnet101'),
+    'fasterrcnn_resnext': fasterrcnn_resnet_fpn('resnext101_32x8d'),
 }
