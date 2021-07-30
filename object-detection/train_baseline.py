@@ -38,6 +38,62 @@ from baseline.models import models
 from dataset.bike_dataset import DelftBikeDataset
 from dataset.dataset_utils import get_transform
 
+class FastRCNNPredictor(nn.Module):
+    """
+    Standard classification + bounding box regression layers
+    for Fast R-CNN.
+
+    Arguments:
+        in_channels (int): number of input channels
+        num_classes (int): number of output classes (including background)
+    """
+
+    def __init__(self):
+        super(FastRCNNPredictor, self).__init__()
+
+        self.cls_score = nn.Linear(1024,23)
+        self.bbox_pred_fc = nn.Linear(1024,92)
+
+        self.fc_head = nn.Sequential(
+            nn.Linear(7*7*256,1024),
+            nn.Linear(1024,1024)            
+            )
+
+        self.bbox_pred = nn.Linear(1024,92)
+        self.cls_score_conv = nn.Linear(1024,23)
+
+        self.conv_head = nn.Sequential(
+            nn.Conv2d(256, 1024, kernel_size=(1, 1), stride=(1, 1)),
+            nn.Conv2d(1024, 1024, kernel_size=(1, 1), stride=(1, 1)),
+            nn.Conv2d(1024, 1024, kernel_size=(1, 1), stride=(1, 1)),
+            Flatten()
+            )
+
+    def forward(self, x):
+        y = x.flatten(start_dim=1)
+
+        fc_base = self.fc_head(y)
+        cls_score = self.cls_score(fc_base)
+        reg_fc = self.bbox_pred_fc(fc_base)
+
+        conv_base = self.conv_head(x)
+        bbox_deltas = self.bbox_pred(conv_base)
+        cls_conv = self.cls_score_conv(conv_base)
+
+        return cls_score, bbox_deltas
+
+
+class Identity(nn.Module):
+    def __init__(self):
+        super(Identity, self).__init__()
+        
+    def forward(self, x):
+        return x
+
+class Flatten(nn.Module):
+  def forward(self, x):
+    return torch.mean(x.view(x.size(0), x.size(1), -1), dim=2)
+
 def main(args):
     print(args)
 
@@ -62,6 +118,11 @@ def main(args):
 
     print("Creating model")
     model = models[args.model](num_classes=23)  # 22 parts + 1 Background
+
+    model.roi_heads.box_head = Identity()
+
+    model.roi_heads.box_predictor = FastRCNNPredictor()
+
     model.to(device)
 
     params = [p for p in model.parameters() if p.requires_grad]

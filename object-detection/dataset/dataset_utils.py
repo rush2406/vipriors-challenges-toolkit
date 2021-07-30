@@ -25,6 +25,18 @@ class Compose(object):
 
     def __call__(self, image, target,mode):
 
+        if mode=='train':
+
+            transform = A.Compose([
+                A.HorizontalFlip(p=0.5)
+                ],bbox_params = A.BboxParams(format='pascal_voc'))
+
+            labels = target["labels"].reshape(-1,1)
+            boxes = torch.cat((target["boxes"],labels),dim=1)
+            #transformed = transform(image=image, bboxes=np.array(boxes.tolist()))
+            #image = transformed['image'].copy()
+            #target["boxes"] = torch.as_tensor(transformed['bboxes'].copy(), dtype=torch.float32)[:,:-1]
+
         for t in self.transforms:
             image, target = t(image, target)
 
@@ -819,9 +831,10 @@ def get_transform(train):
     transforms = []
     
     if train:
-        transforms.append(RandomTranslate())
-        transforms.append(RandomRotate(30))
+        pass
+        #transforms.append(RandomTranslate())
+        #transforms.append(RandomRotate(30))
 
-    transforms.append(RandomHSV(50,50,50))
+    #transforms.append(RandomHSV(50,50,50))
     transforms.append(ToTensor())
     return Compose(transforms)

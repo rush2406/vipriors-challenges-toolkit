@@ -37,7 +37,7 @@ class DelftBikeDataset(object):
                 ymax = loc['top'] + loc['height']
                 boxes.append([xmin, ymin, xmax, ymax])
                 #print([xmin, ymin, xmax, ymax])
-                labs.append(ind+1) 
+                labs.append(ind+1)
         # convert everything into a torch tensor
         boxes = torch.as_tensor(boxes, dtype=torch.float32)
         labs = torch.as_tensor(labs, dtype=torch.int64)
