@@ -37,6 +37,8 @@ import baseline.utils as utils
 from baseline.models import models
 from dataset.bike_dataset import DelftBikeDataset
 from dataset.dataset_utils import get_transform
+from torch.optim.swa_utils import AveragedModel, SWALR
+from torch.optim.lr_scheduler import CosineAnnealingLR
 
 class FastRCNNPredictor(nn.Module):
     """
@@ -62,7 +64,9 @@ class FastRCNNPredictor(nn.Module):
 
         self.conv_head = nn.Sequential(
             nn.Conv2d(256, 1024, kernel_size=(1, 1), stride=(1, 1)),
+            nn.ReLU(),
             nn.Conv2d(1024, 1024, kernel_size=(1, 1), stride=(1, 1)),
+            nn.ReLU(),
             nn.Conv2d(1024, 1024, kernel_size=(1, 1), stride=(1, 1)),
             Flatten()
             )
@@ -115,18 +119,20 @@ def main(args):
     print("Creating model")
     model = models[args.model](num_classes=23)  # 22 parts + 1 Background
 
-    model.roi_heads.box_head = Identity()
+    #model.roi_heads.box_head = Identity()
 
-    model.roi_heads.box_predictor = FastRCNNPredictor()
+    #model.roi_heads.box_predictor = FastRCNNPredictor()
 
     model.to(device)
-
+    swa_model = AveragedModel(model)
     params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.SGD(
-        params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
-
-    lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
-            optimizer, milestones=args.lr_steps, gamma=args.lr_gamma)
+        params, lr=args.lr, momentum=args.momentum)#, weight_decay=args.weight_decay)
+    swa_start = 5
+    swa_scheduler = SWALR(optimizer, swa_lr=0.01)
+    #lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
+            #optimizer, milestones=args.lr_steps, gamma=args.lr_gamma)
+    lr_scheduler = CosineAnnealingLR(optimizer, T_max=100)
 
     if args.resume:
         checkpoint = torch.load(args.resume)
@@ -140,13 +146,19 @@ def main(args):
         return
 
     print("Start training")
+    swa_start = 5
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
         train_one_epoch(model, optimizer, data_loader, device, epoch, args.print_freq)
         lr_scheduler.step()
+        if epoch > swa_start:
+            swa_model.update_parameters(model)
+            swa_scheduler.step()
+        else:
+            lr_scheduler.step()
         if args.output_dir:
             utils.save_on_master({
-                'model': model.state_dict(),
+                'model': swa_model.state_dict(),
                 'optimizer': optimizer.state_dict(),
                 'lr_scheduler': lr_scheduler.state_dict(),
                 'args': args,
@@ -156,6 +168,7 @@ def main(args):
         # evaluate after every epoch
         evaluate(model, data_loader_test, device=device)
 
+    torch.optim.swa_utils.update_bn(data_loader, swa_model)
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str))
@@ -178,7 +191,7 @@ if __name__ == "__main__":
                         help='number of total epochs to run')
     parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                         help='number of data loading workers (default: 4)')
-    parser.add_argument('--lr', default=0.01, type=float,
+    parser.add_argument('--lr', default=0.05, type=float,
                         help='initial learning rate, 0.02 is the default value for training '
                         'on 8 gpus and 2 images_per_gpu')
     parser.add_argument('--momentum', default=0.9, type=float, metavar='M',

@@ -28,14 +28,21 @@ class Compose(object):
         if mode=='train':
 
             transform = A.Compose([
-                A.HorizontalFlip(p=0.5)
+                A.HorizontalFlip(p=0.5),
+                A.RandomSizedBBoxSafeCrop(width=512, height=512, erosion_rate=0.1),
+                A.RandomBrightnessContrast(p=0.2),
+                ],bbox_params = A.BboxParams(format='pascal_voc'))
+        else:
+
+            transform = A.Compose([
+                A.RandomBrightnessContrast(p=0.2),
                 ],bbox_params = A.BboxParams(format='pascal_voc'))
 
-            labels = target["labels"].reshape(-1,1)
-            boxes = torch.cat((target["boxes"],labels),dim=1)
-            #transformed = transform(image=image, bboxes=np.array(boxes.tolist()))
-            #image = transformed['image'].copy()
-            #target["boxes"] = torch.as_tensor(transformed['bboxes'].copy(), dtype=torch.float32)[:,:-1]
+        labels = target["labels"].reshape(-1,1)
+        boxes = torch.cat((target["boxes"],labels),dim=1)
+        transformed = transform(image=image, bboxes=np.array(boxes.tolist()))
+        #image = transformed['image'].copy()
+        #target["boxes"] = torch.as_tensor(transformed['bboxes'].copy(), dtype=torch.float32)[:,:-1]
 
         for t in self.transforms:
             image, target = t(image, target)
@@ -832,9 +839,6 @@ def get_transform(train):
     
     if train:
         pass
-        #transforms.append(RandomTranslate())
-        #transforms.append(RandomRotate(30))
-
-    #transforms.append(RandomHSV(50,50,50))
+        
     transforms.append(ToTensor())
     return Compose(transforms)
